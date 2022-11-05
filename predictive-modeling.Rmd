@@ -37,7 +37,38 @@ Packages loaded: `r pkg_req_true`
 source("code/mytheme.R")  # loads ggplot theme
 ```
 
-### Load DOC and Predictor Data
+### Load and View DOC Data
+
+```{r load-doc, echo = F, message = F}
+doc <- read_csv("data/annual-doc-yield.csv") %>% 
+  dplyr::select(IP_ID, Use, DOC_yield = annual_DOC_yield, DOC_yield_sd = sd_annual_DOC_yield)
+glimpse(doc)
+```
+
+
+### Load and View Predictive Features
+
+Exclude geolocation features: `Poly_x`, `Poly_y`, `Cluster`
+
+```{r load-predictors, echo = F, message = F}
+feat <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>% 
+  dplyr::select(-"Poly_x", -"Poly_y", -"Cluster")
+glimpse(feat)
+```
+
+#### Feature Objects
+
+```{r subset-features, include = F}
+# combine features 
+feat_names <- feat %>% 
+  dplyr::select(-IP_ID) %>% 
+  names()
+feat_l <- length(feat_names)
+```
+
+Num. of features = `r feat_l`  
+
+Feature names: `r cbind(feat_names)`
 
 
 
