@@ -25,28 +25,25 @@ Packages loaded: Yes
 
 
 
+## Part 1: Create Training Data
+
 ### Load and View DOC Data
 
+Much of Part 1 code can be suppressed `eval = F` for Part 1 as `training-data.csv` exists in repo.
 
-```
-## Rows: 116
-## Columns: 4
-## $ IP_ID        <dbl> 86, 105, 107, 117, 122, 182, 234, 236, 238, 239, 241, 242…
-## $ Use          <chr> "M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "M…
-## $ DOC_yield    <dbl> 3.595072, 4.319696, 5.879847, 3.317245, 2.958712, 2.67588…
-## $ DOC_yield_sd <dbl> 1.5712532, 1.8310330, 2.6545808, 1.5409077, 1.3001446, 1.…
-```
+
 
 
 ### Load and View Predictive Features
 
-Exclude geolocation features: `Poly_x`, `Poly_y`, `Cluster`
+Exclude geolocation features: `Poly_x`, `Poly_y`
 
 
 ```
 ## Rows: 2,705
-## Columns: 18
+## Columns: 19
 ## $ IP_ID     <dbl> 1, 10, 101, 102, 10278, 104, 105, 107, 108, 109, 110, 114, 1…
+## $ Cluster   <dbl> 1, 1, 2, 2, 7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 7, …
 ## $ Area_km2  <dbl> 12.87594, 29.93291, 42.80481, 12.56653, 17.30269, 39.30523, …
 ## $ PAratio   <dbl> 2.1778479, 1.3328560, 1.1284217, 1.5158169, 1.6098820, 0.871…
 ## $ Wtb_prct  <dbl> 0.0000000, 0.0000000, 1.1195686, 0.0000000, 0.0000000, 1.012…
@@ -66,15 +63,94 @@ Exclude geolocation features: `Poly_x`, `Poly_y`, `Cluster`
 ## $ VegHt_avg <dbl> 5.181818, 9.220000, 28.105263, 25.173913, 15.892857, 23.3289…
 ```
 
-#### Feature Objects
+### Feature Objects
 
 
 
-Num. of features = 17  
+`feat_l` = 17  
 
-Feature names: Area_km2, PAratio, Wtb_prct, Glc_prct, Elev_avg, Elev_max, Slpe_avg, Slpe5, Slpe10, MAP_avg, PAS_avg, PrctSnow, MAT_avg, MSP_avg, TD_avg, Eref_avg, VegHt_avg
+`feat_names`: Area_km2, PAratio, Wtb_prct, Glc_prct, Elev_avg, Elev_max, Slpe_avg, Slpe5, Slpe10, MAP_avg, PAS_avg, PrctSnow, MAT_avg, MSP_avg, TD_avg, Eref_avg, VegHt_avg
+
+### Geneate Combinations
+
+Minimum number of features = 2
+Maximum number of features = 5
+
+Takes a couple of minute to run for max. = 5. Longer for more.
 
 
 
+
+
+**Output:** Predictive modeling feature combinations list, `data/feat_comb.rds`
+
+
+```r
+saveRDS(feat_comb, "data/feat_comb.rds")
+```
+
+There are ~9,000 feature combinations for 2-5 predictors.
+
+### Join DOC and Features
+
+
+
+**Output:** Predictive modeling training dataset, `data/training-data.csv`
+
+
+```r
+write_csv(data, "data/training-data.csv")
+```
+
+## Part 2: Train Random Forest
+
+
+```r
+train <- read_csv("data/training-data.csv")
+feat_comb <- readRDS("data/feat_comb.rds")
+```
+
+
+```r
+set.seed(23)
+IP_IDs <- train %>% 
+  select(IP_ID) %>% pull
+```
+
+### Cluster Watersheds
+
+
+```r
+# site_loc <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>% 
+#   group_by(IP_ID) %>% 
+#   summarize(Lat = Poly_y[1],
+#             Lon = Poly_x[1]) 
+# 
+# x <- site_loc$Lon
+# y <- site_loc$Lat
+# xy <- SpatialPointsDataFrame(matrix(c(x,y), ncol=2), data.frame(IP_ID=site_loc$IP_ID),
+#                              proj4string = CRS("+proj=aea +ellps=GRS80 +datum=NAD83"))
+# plot(xy)
+# crs(xy)
+# 
+# xy <- spTransform(xy, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")) 
+
+# # calculate Euclidian distance 
+# site_dist <- xy %>% distm()
+# 
+# # cluster
+# site_clusters <- hclust(as.dist(site_dist), method ='complete')
+# 
+# # define 300 km threshold
+# d <- 100000
+# xy$fold <- cutree(site_clusters, h=d) 
+# xy <- xy %>% as_tibble() %>% 
+#   dplyr::select(IP_ID, fold)
+# 
+# # rejoin folds
+# train <- train %>% 
+#   left_join(xy, by = c("IP_ID")) %>%
+#   dplyr::select(fold = fold, everything())
+```
 
 

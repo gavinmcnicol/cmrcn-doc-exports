@@ -233,6 +233,83 @@ window.buildTabsets = function(tocID) {
 
 
 
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { font-weight: bold; } /* Alert */
+code span.an { font-style: italic; } /* Annotation */
+code span.cf { font-weight: bold; } /* ControlFlow */
+code span.co { font-style: italic; } /* Comment */
+code span.cv { font-style: italic; } /* CommentVar */
+code span.do { font-style: italic; } /* Documentation */
+code span.dt { text-decoration: underline; } /* DataType */
+code span.er { font-weight: bold; } /* Error */
+code span.in { font-style: italic; } /* Information */
+code span.kw { font-weight: bold; } /* Keyword */
+code span.pp { font-weight: bold; } /* Preprocessor */
+code span.wa { font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 
 
 
@@ -366,22 +443,22 @@ S. Tank, I.J.W. Giesbrecht, W. Floyd, D. D’Amore, J.B. Fellman
 <div id="analysis" class="section level2">
 <h2>Analysis</h2>
 <p>Packages loaded: Yes</p>
+</div>
+<div id="part-1-create-training-data" class="section level2">
+<h2>Part 1: Create Training Data</h2>
 <div id="load-and-view-doc-data" class="section level3">
 <h3>Load and View DOC Data</h3>
-<pre><code>## Rows: 116
-## Columns: 4
-## $ IP_ID        &lt;dbl&gt; 86, 105, 107, 117, 122, 182, 234, 236, 238, 239, 241, 242…
-## $ Use          &lt;chr&gt; &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M&quot;, &quot;M…
-## $ DOC_yield    &lt;dbl&gt; 3.595072, 4.319696, 5.879847, 3.317245, 2.958712, 2.67588…
-## $ DOC_yield_sd &lt;dbl&gt; 1.5712532, 1.8310330, 2.6545808, 1.5409077, 1.3001446, 1.…</code></pre>
+<p>Much of Part 1 code can be suppressed <code>eval = F</code> for Part
+1 as <code>training-data.csv</code> exists in repo.</p>
 </div>
 <div id="load-and-view-predictive-features" class="section level3">
 <h3>Load and View Predictive Features</h3>
 <p>Exclude geolocation features: <code>Poly_x</code>,
-<code>Poly_y</code>, <code>Cluster</code></p>
+<code>Poly_y</code></p>
 <pre><code>## Rows: 2,705
-## Columns: 18
+## Columns: 19
 ## $ IP_ID     &lt;dbl&gt; 1, 10, 101, 102, 10278, 104, 105, 107, 108, 109, 110, 114, 1…
+## $ Cluster   &lt;dbl&gt; 1, 1, 2, 2, 7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 7, …
 ## $ Area_km2  &lt;dbl&gt; 12.87594, 29.93291, 42.80481, 12.56653, 17.30269, 39.30523, …
 ## $ PAratio   &lt;dbl&gt; 2.1778479, 1.3328560, 1.1284217, 1.5158169, 1.6098820, 0.871…
 ## $ Wtb_prct  &lt;dbl&gt; 0.0000000, 0.0000000, 1.1195686, 0.0000000, 0.0000000, 1.012…
@@ -399,13 +476,69 @@ S. Tank, I.J.W. Giesbrecht, W. Floyd, D. D’Amore, J.B. Fellman
 ## $ TD_avg    &lt;dbl&gt; 13.83333, 14.08333, 14.68293, 14.45455, 10.13333, 14.25000, …
 ## $ Eref_avg  &lt;dbl&gt; 663.0000, 618.9167, 550.1951, 535.5455, 491.5333, 540.6111, …
 ## $ VegHt_avg &lt;dbl&gt; 5.181818, 9.220000, 28.105263, 25.173913, 15.892857, 23.3289…</code></pre>
-<div id="feature-objects" class="section level4">
-<h4>Feature Objects</h4>
-<p>Num. of features = 17</p>
-<p>Feature names: Area_km2, PAratio, Wtb_prct, Glc_prct, Elev_avg,
-Elev_max, Slpe_avg, Slpe5, Slpe10, MAP_avg, PAS_avg, PrctSnow, MAT_avg,
-MSP_avg, TD_avg, Eref_avg, VegHt_avg</p>
 </div>
+<div id="feature-objects" class="section level3">
+<h3>Feature Objects</h3>
+<p><code>feat_l</code> = 17</p>
+<p><code>feat_names</code>: Area_km2, PAratio, Wtb_prct, Glc_prct,
+Elev_avg, Elev_max, Slpe_avg, Slpe5, Slpe10, MAP_avg, PAS_avg, PrctSnow,
+MAT_avg, MSP_avg, TD_avg, Eref_avg, VegHt_avg</p>
+</div>
+<div id="geneate-combinations" class="section level3">
+<h3>Geneate Combinations</h3>
+<p>Minimum number of features = 2 Maximum number of features = 5</p>
+<p>Takes a couple of minute to run for max. = 5. Longer for more.</p>
+<p><strong>Output:</strong> Predictive modeling feature combinations
+list, <code>data/feat_comb.rds</code></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(feat_comb, <span class="st">&quot;data/feat_comb.rds&quot;</span>)</span></code></pre></div>
+<p>There are ~9,000 feature combinations for 2-5 predictors.</p>
+</div>
+<div id="join-doc-and-features" class="section level3">
+<h3>Join DOC and Features</h3>
+<p><strong>Output:</strong> Predictive modeling training dataset,
+<code>data/training-data.csv</code></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_csv</span>(data, <span class="st">&quot;data/training-data.csv&quot;</span>)</span></code></pre></div>
+</div>
+</div>
+<div id="part-2-train-random-forest" class="section level2">
+<h2>Part 2: Train Random Forest</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>train <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&quot;data/training-data.csv&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>feat_comb <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&quot;data/feat_comb.rds&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">23</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>IP_IDs <span class="ot">&lt;-</span> train <span class="sc">%&gt;%</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(IP_ID) <span class="sc">%&gt;%</span> pull</span></code></pre></div>
+<div id="cluster-watersheds" class="section level3">
+<h3>Cluster Watersheds</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># site_loc &lt;- read_csv(&quot;data/WtsData_For_RCN_DOCflux.csv&quot;) %&gt;% </span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   group_by(IP_ID) %&gt;% </span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   summarize(Lat = Poly_y[1],</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">#             Lon = Poly_x[1]) </span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># x &lt;- site_loc$Lon</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># y &lt;- site_loc$Lat</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co"># xy &lt;- SpatialPointsDataFrame(matrix(c(x,y), ncol=2), data.frame(IP_ID=site_loc$IP_ID),</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#                              proj4string = CRS(&quot;+proj=aea +ellps=GRS80 +datum=NAD83&quot;))</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># plot(xy)</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># crs(xy)</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co"># xy &lt;- spTransform(xy, CRS(&quot;+proj=longlat +ellps=WGS84 +datum=WGS84&quot;)) </span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co"># # calculate Euclidian distance </span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co"># site_dist &lt;- xy %&gt;% distm()</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co"># # cluster</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co"># site_clusters &lt;- hclust(as.dist(site_dist), method =&#39;complete&#39;)</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co"># # define 300 km threshold</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co"># d &lt;- 100000</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co"># xy$fold &lt;- cutree(site_clusters, h=d) </span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co"># xy &lt;- xy %&gt;% as_tibble() %&gt;% </span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">#   dplyr::select(IP_ID, fold)</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co"># # rejoin folds</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co"># train &lt;- train %&gt;% </span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#   left_join(xy, by = c(&quot;IP_ID&quot;)) %&gt;%</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">#   dplyr::select(fold = fold, everything())</span></span></code></pre></div>
 </div>
 </div>
 

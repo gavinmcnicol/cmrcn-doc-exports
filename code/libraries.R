@@ -7,6 +7,7 @@ pkg_req <- c("tidyverse",
         "sf",
         "sp",
         "rgeos",
-        "rgdal"
+        "rgdal",
+        "geosphere"
         )
 

@@ -37,9 +37,13 @@ Packages loaded: `r pkg_req_true`
 source("code/mytheme.R")  # loads ggplot theme
 ```
 
+## Part 1: Create Training Data
+
 ### Load and View DOC Data
 
-```{r load-doc, echo = F, message = F}
+Much of Part 1 code can be suppressed `eval = F` for Part 1 as `training-data.csv` exists in repo.
+
+```{r load-doc, echo = F, message = F, eval = F}
 doc <- read_csv("data/annual-doc-yield.csv") %>% 
   dplyr::select(IP_ID, Use, DOC_yield = annual_DOC_yield, DOC_yield_sd = sd_annual_DOC_yield)
 glimpse(doc)
@@ -48,29 +52,123 @@ glimpse(doc)
 
 ### Load and View Predictive Features
 
-Exclude geolocation features: `Poly_x`, `Poly_y`, `Cluster`
+Exclude geolocation features: `Poly_x`, `Poly_y`
 
 ```{r load-predictors, echo = F, message = F}
 feat <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>% 
-  dplyr::select(-"Poly_x", -"Poly_y", -"Cluster")
+  dplyr::select(-"Poly_x", -"Poly_y")
 glimpse(feat)
 ```
 
-#### Feature Objects
+### Feature Objects
 
 ```{r subset-features, include = F}
 # combine features 
 feat_names <- feat %>% 
-  dplyr::select(-IP_ID) %>% 
+  dplyr::select(-IP_ID, -Cluster) %>% 
   names()
 feat_l <- length(feat_names)
 ```
 
-Num. of features = `r feat_l`  
+`feat_l` = `r feat_l`  
 
-Feature names: `r cbind(feat_names)`
+`feat_names`: `r cbind(feat_names)`
 
+### Geneate Combinations
 
+Minimum number of features = 2
+Maximum number of features = 5
 
+Takes a couple of minute to run for max. = 5. Longer for more.
+
+```{r get-feat-combin, include = F, eval = F}
+feat_index <- expand.grid(0:1, 0:1, 0:1, 0:1, 0:1,
+            0:1, 0:1, 0:1, 0:1, 0:1,
+            0:1, 0:1, 0:1, 0:1, 0:1,
+            0:1, 0:1) %>% 
+  as_tibble() %>% 
+  rowwise() %>% 
+  mutate(sum = sum(c_across(Var1:Var17))) %>% 
+  filter(sum %in% c(2, 3, 4, 5)) %>% 
+  dplyr::select(-sum)
+```
+
+```{r get-feat-combin-2, include = F, eval = F}
+feat_names_list <- list()
+for(i in 1:nrow(feat_index)){
+  feat_names_list[[i]] <- feat_names[which(feat_index[i,] == 1)]
+}
+feat_comb <- length(feat_names_list)
+```
+
+**Output:** Predictive modeling feature combinations list, `data/feat_comb.rds`
+
+```{r output-feat-comb, eval = F}
+saveRDS(feat_comb, "data/feat_comb.rds")
+```
+
+There are ~9,000 feature combinations for 2-5 predictors.
+
+### Join DOC and Features
+
+```{r join-data, include = F, eval = F}
+data <- doc %>% 
+  left_join(feat, by = "IP_ID")
+```
+
+**Output:** Predictive modeling training dataset, `data/training-data.csv`
+
+```{r output-training-data, eval = F}
+write_csv(data, "data/training-data.csv")
+```
+
+## Part 2: Train Random Forest
+
+```{r read-data, output = F, message = F}
+train <- read_csv("data/training-data.csv")
+feat_comb <- readRDS("data/feat_comb.rds")
+```
+
+```{r  set-seed, output = F, message = F}
+set.seed(23)
+IP_IDs <- train %>% 
+  select(IP_ID) %>% pull
+```
+
+### Cluster Watersheds
+
+```{r cluster-watersheds}
+# site_loc <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>% 
+#   group_by(IP_ID) %>% 
+#   summarize(Lat = Poly_y[1],
+#             Lon = Poly_x[1]) 
+# 
+# x <- site_loc$Lon
+# y <- site_loc$Lat
+# xy <- SpatialPointsDataFrame(matrix(c(x,y), ncol=2), data.frame(IP_ID=site_loc$IP_ID),
+#                              proj4string = CRS("+proj=aea +ellps=GRS80 +datum=NAD83"))
+# plot(xy)
+# crs(xy)
+# 
+# xy <- spTransform(xy, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")) 
+
+# # calculate Euclidian distance 
+# site_dist <- xy %>% distm()
+# 
+# # cluster
+# site_clusters <- hclust(as.dist(site_dist), method ='complete')
+# 
+# # define 300 km threshold
+# d <- 100000
+# xy$fold <- cutree(site_clusters, h=d) 
+# xy <- xy %>% as_tibble() %>% 
+#   dplyr::select(IP_ID, fold)
+# 
+# # rejoin folds
+# train <- train %>% 
+#   left_join(xy, by = c("IP_ID")) %>%
+#   dplyr::select(fold = fold, everything())
+
+```
 
 
