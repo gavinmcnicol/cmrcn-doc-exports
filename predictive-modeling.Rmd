@@ -677,6 +677,8 @@ write.csv(rcn.pred, "output/rcn_yield.csv",
 
 ```{r}
 
+rcn.pred <- read_csv("output/rcn_yield.csv")
+
 summary(rcn.pred$DOC_yieldP_biascor)
 
 rcn.pred %>% 
@@ -691,7 +693,7 @@ rcn.pred %>%
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
-  mutate(Load_Tgy = 2.7295*Area_km2*10^6*10^-12) %>% 
+  mutate(Load_Tgy = 2.73*Area_km2*10^6*10^-12) %>% 
   summarize(Area_km2 = sum(Area_km2),
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
@@ -700,7 +702,7 @@ rcn.pred %>%
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
-  mutate(Load_Tgy = 4.35217*Area_km2*10^6*10^-12) %>% 
+  mutate(Load_Tgy = 4.35*Area_km2*10^6*10^-12) %>% 
   summarize(Area_km2 = sum(Area_km2),
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
