@@ -507,9 +507,11 @@ saveRDS(splinemod, "output/rf_bias_spline.rds")
 
 ## get bias corrected predictions
 ```{r}
-DOC_yieldP_biascor <- predict(splinemod, rf.pred.all$DOC_yieldP)  
-DOC_yieldP_biascor <- DOC_yieldP_biascor$y
-rf.pred.all <- cbind(rf.pred.all, DOC_yieldP_biascor)
+rf.pred.all <- read_csv("output/rf_pred_all.csv")
+
+# DOC_yieldP_biascor <- predict(splinemod, rf.pred.all$DOC_yieldP)  
+# DOC_yieldP_biascor <- DOC_yieldP_biascor$y
+# rf.pred.all <- cbind(rf.pred.all, DOC_yieldP_biascor)
 
 rf.pred.all %>% 
   ggplot(aes(DOC_yield, DOC_yieldP_biascor)) +
@@ -689,16 +691,16 @@ rcn.pred %>%
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
 
-# uncertainty MAE (2.7295)
+# uncertainty MAE (2.719667)
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
-  mutate(Load_Tgy = 2.73*Area_km2*10^6*10^-12) %>% 
+  mutate(Load_Tgy = 2.72*Area_km2*10^6*10^-12) %>% 
   summarize(Area_km2 = sum(Area_km2),
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
 
-    # uncertainty RMSE (4.35217)
+    1# uncertainty RMSE (4.35217)
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
