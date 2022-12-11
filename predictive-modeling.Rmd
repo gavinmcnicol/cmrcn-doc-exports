@@ -26,7 +26,7 @@ source("code/libraries.R") # loads packages as pkg_req
 lapply(pkg_req, require, character.only = TRUE)
 if(pkg_req %in% (.packages())){
   pkg_req_true = "Yes"
-} else{
+} else {
   pkg_req_true = "No"
 }
 ```
@@ -59,6 +59,15 @@ feat <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>%
   dplyr::select(-"Poly_x", -"Poly_y")
 glimpse(feat)
 ```
+
+## Load in LAT/LONs
+
+```{r load-lat-lon, echo = F, message = F}
+feat_lat_lon <- read_csv("data/Watersheds_of_the_northern_Pacific_coastal_temperate_rainforest_margin_Centroids_WGS84.csv") %>% 
+  dplyr::select(IP_ID, "lat" = Lat, "lon" = Lon) %>% 
+  right_join(feat, by = "IP_ID")
+```
+
 
 ### Feature Objects
 
@@ -94,17 +103,17 @@ feat_index <- expand.grid(0:1, 0:1, 0:1, 0:1, 0:1,
 ```
 
 ```{r get-feat-combin-2, include = F, eval = F}
-feat_names_list <- list()
+feat_comb_list <- list()
 for(i in 1:nrow(feat_index)){
-  feat_names_list[[i]] <- feat_names[which(feat_index[i,] == 1)]
+  feat_comb_list[[i]] <- feat_names[which(feat_index[i,] == 1)]
 }
-feat_comb <- length(feat_names_list)
+feat_comb <- length(feat_comb_list)
 ```
 
-**Output:** Predictive modeling feature combinations list, `data/feat_comb.rds`
+**Output:** Predictive modeling feature combinations list, `data/feat_comb_list.rds`
 
 ```{r output-feat-comb, eval = F}
-saveRDS(feat_comb, "data/feat_comb.rds")
+saveRDS(feat_comb_list, "data/feat_comb_list.rds")
 ```
 
 There are ~9,000 feature combinations for 2-5 predictors.
@@ -113,7 +122,7 @@ There are ~9,000 feature combinations for 2-5 predictors.
 
 ```{r join-data, include = F, eval = F}
 data <- doc %>% 
-  left_join(feat, by = "IP_ID")
+  left_join(feat_lat_lon, by = "IP_ID")
 ```
 
 **Output:** Predictive modeling training dataset, `data/training-data.csv`
@@ -126,7 +135,7 @@ write_csv(data, "data/training-data.csv")
 
 ```{r read-data, output = F, message = F}
 train <- read_csv("data/training-data.csv")
-feat_comb <- readRDS("data/feat_comb.rds")
+feat_comb_list <- readRDS("data/feat_comb_list.rds")
 ```
 
 ```{r  set-seed, output = F, message = F}
@@ -138,37 +147,564 @@ IP_IDs <- train %>%
 ### Cluster Watersheds
 
 ```{r cluster-watersheds}
-# site_loc <- read_csv("data/WtsData_For_RCN_DOCflux.csv") %>% 
-#   group_by(IP_ID) %>% 
-#   summarize(Lat = Poly_y[1],
-#             Lon = Poly_x[1]) 
-# 
-# x <- site_loc$Lon
-# y <- site_loc$Lat
-# xy <- SpatialPointsDataFrame(matrix(c(x,y), ncol=2), data.frame(IP_ID=site_loc$IP_ID),
-#                              proj4string = CRS("+proj=aea +ellps=GRS80 +datum=NAD83"))
-# plot(xy)
-# crs(xy)
-# 
-# xy <- spTransform(xy, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")) 
+x <- train$lon
+y <- train$lat
+xy <- SpatialPointsDataFrame(matrix(c(x,y), ncol=2), data.frame(IP_ID=train$IP_ID),
+                             proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84"))
+plot(xy)
 
-# # calculate Euclidian distance 
-# site_dist <- xy %>% distm()
-# 
-# # cluster
-# site_clusters <- hclust(as.dist(site_dist), method ='complete')
-# 
-# # define 300 km threshold
-# d <- 100000
-# xy$fold <- cutree(site_clusters, h=d) 
-# xy <- xy %>% as_tibble() %>% 
-#   dplyr::select(IP_ID, fold)
-# 
-# # rejoin folds
-# train <- train %>% 
-#   left_join(xy, by = c("IP_ID")) %>%
-#   dplyr::select(fold = fold, everything())
+# calculate Euclidian distance
+site_dist <- xy %>% distm()
+
+# cluster
+site_clusters <- hclust(as.dist(site_dist), method ='complete')
+
+# define 1000 km threshold
+d <- 100000
+xy$fold <- cutree(site_clusters, h=d)
+xy <- xy %>% as_tibble() %>%
+  dplyr::select(IP_ID, fold)
+
+xy %>% 
+  count(fold)
+
+# rejoin folds
+train <- train %>%
+  left_join(xy, by = c("IP_ID")) %>%
+  dplyr::select(fold = fold, everything())
+
+
+# check train length and fold number
+train_l <- length(train$lat)
+folds <- max(train$fold)
+watersheds <- length(unique(as.character(train$IP_ID)))
 
 ```
+
+
+## Start FFS
+```{r set-up-folds, echo = F, message = F}
+
+train_feat <- list()
+train_label <- list()
+
+for (i in 1:folds) {
+  train_label[[i]] <- train %>% filter(!fold == i) %>% dplyr::select(DOC_yield) %>% pull()
+  train_feat[[i]] <- train %>% filter(!fold == i) %>% dplyr::select(all_of(feat_names)) %>% as_tibble()
+}
+
+folds_index <- list() # need list within list (each inner list has all fold site except LOSO fold)
+for (i in 1:folds) {
+  x <- list()
+  folds_index[[i]] <- x
+}
+
+for (i in 1:folds) {
+  for (j in 1:folds) {
+    folds_index[[i]][[j]] <- train %>% 
+      filter(!fold == i) %>% 
+      mutate(index = 1:n()) %>% 
+      filter(!fold == j) %>% 
+      dplyr::select(index) %>% 
+      pull()
+  }
+  folds_index[[i]] <- folds_index[[i]][-i]
+}
+
+```
+
+###  FFS by training and evaluating models
+
+```{r ffs, echo = F, message = F, warning = F}
+
+## Train multiple RFs (with CV) for FFS to select the first pair
+# outer loop lists
+rf_metrics <- list()
+
+for(j in 1677:length(feat_comb_list)) {
+  # set up RF lists
+  tgrid <- list()
+  myControl <- list()
+  rf_model <- list()
+  rf_varimp <- list()
+  
+  for (i in 1:folds) {
+    
+    num.trees.rf <- ifelse(length(feat_comb_list[[j]]) < 5, 50, 100)
+    
+    ## Create tune-grid
+    tgrid <- expand.grid(
+      mtry = c(2),
+      splitrule = "variance", 
+      min.node.size = c(50)
+    )
+    
+    ## Create trainControl object
+    myControl <- trainControl(
+      method = "none",
+      classProbs = FALSE,
+      allowParallel = TRUE
+    )
+    
+    ## train rf on folds
+    rf_model[[i]] <- train(
+      x = train_feat[[i]][,feat_comb_list[[j]]], 
+      y = train_label[[i]],
+      num.trees = num.trees.rf, # start 300 drop to 100
+      method = 'ranger',
+      trControl = myControl,
+      tuneGrid = tgrid,
+      metric = "MAE"
+    )
+    # print(i)
+  }
+ 
+  # get all hold out predictions
+  rf.pred <- list()
+  for (i in 1:folds) {
+    rf.pred[[i]] <- train %>% 
+      filter(fold == i) %>%   
+      mutate(DOC_yieldP = predict(rf_model[[i]], .),
+             index = 1:n()) 
+  }
+  rf.pred.all <- bind_rows(rf.pred)
+  
+  rf_metrics[[j]] <- ungroup(rf.pred.all) %>% 
+    # filter(!ID %in% c("USOWC")) %>%
+    summarize(samples = n(),
+              R2 = cor(DOC_yieldP, DOC_yield)^2,
+              NSE = 1 - sum((DOC_yield - DOC_yieldP)^2) / sum((DOC_yield - mean(DOC_yield))^2),
+              MAE = sum(abs(DOC_yield - DOC_yieldP))/n(),
+              nMAE = MAE/sd(DOC_yield),
+              MeanO = mean(DOC_yield),
+              MedO = median(DOC_yield),
+              sdO = sd(DOC_yield),
+              MeanP = mean(DOC_yieldP),
+              MedP = median(DOC_yieldP),
+              sdP = sd(DOC_yieldP),
+              nSD = sdP/sdO,
+              Bias = mean(DOC_yieldP - DOC_yield),
+              cBias = abs(Bias)/sum(abs(Bias))*100,
+              predictors = list(feat_comb_list[[j]])) 
+  
+  print(j)
+}
+
+```
+## Combine cross-validation metrics and write out data
+```{r}
+
+rf_metrics_all <- bind_rows(rf_metrics)  # first run, 1-1676
+rf_metrics_all <- rf_metrics_all %>% 
+  mutate(index = 1:n())
+
+rf_metrics_all %>% 
+  arrange(desc(NSE)) %>% 
+  pull(predictors[[1]])
+
+
+```
+
+
+## Plot and save metrics
+
+```{r}
+# look at metrics distribution
+rf_metrics_all %>% 
+  ggplot(aes(R2)) +
+  geom_histogram() + mytheme
+ggsave(paste("output/ffs_r2.png", sep = ""),
+       width = 8, height = 15, units = c("cm"), dpi = 300) 
+
+rf_metrics_all %>% 
+  ggplot(aes(MAE)) +
+  geom_histogram() + mytheme
+ggsave(paste("output/ffs_mae.png", sep = ""),
+       width = 8, height = 15, units = c("cm"), dpi = 300) 
+
+
+saveRDS(rf_metrics_all, "output/fs_all.rds")
+```
+
+
+### Train with feature subset for cross validation performance
+```{r cv-performance, echo = F, message = F, warning = F}
+
+feat_names <- c("Elev_avg", "PAS_avg",  "MAT_avg", "TD_avg", "Eref_avg")
+
+train_feat <- list()
+train_label <- list()
+
+for (i in 1:folds) {
+  train_label[[i]] <- train %>% filter(!fold == i) %>% dplyr::select(DOC_yield) %>% pull()
+  train_feat[[i]] <- train %>% filter(!fold == i) %>% dplyr::select(all_of(feat_names)) %>% as_tibble()
+}
+
+folds_index <- list() # need list within list (each inner list has all fold site except LOSO fold)
+for (i in 1:folds) {
+  x <- list()
+  folds_index[[i]] <- x
+}
+
+for (i in 1:folds) {
+  for (j in 1:folds) {
+    folds_index[[i]][[j]] <- train %>% 
+      filter(!fold == i) %>% 
+      mutate(index = 1:n()) %>% 
+      filter(!fold == j) %>% 
+      dplyr::select(index) %>% 
+      pull()
+  }
+  folds_index[[i]] <- folds_index[[i]][-i]
+}
+
+# set up RF lists
+tgrid <- list()
+myControl <- list()
+rf_model <- list()
+rf_varimp <- list()
+
+for (i in 1:folds) {
+  
+  ## Create tune-grid
+  tgrid <- expand.grid(
+    mtry = c(2,3,4,5),
+    splitrule = "variance", 
+    min.node.size = c(2,6,12,18)
+  )
+  
+  ## Create trainControl object
+  myControl <- trainControl(
+    method = "cv",
+    classProbs = FALSE,
+    allowParallel = TRUE,
+    verboseIter = TRUE, 
+    savePredictions = TRUE,
+    index = folds_index[[i]]
+  )
+  
+  ## train rf on folds
+  rf_model[[i]] <- train(
+    x = train_feat[[i]], 
+    y = train_label[[i]],
+    num.trees = 50, 
+    method = 'ranger',
+    # weights = train_label[[i]]/max(train_label[[i]])^2,
+    trControl = myControl,
+    tuneGrid = tgrid,
+    importance = 'permutation',
+    metric = "MAE"
+  )
+  print(i)
+}
+
+saveRDS(rf_model, "output/cv_rfs.rds")
+
+```
+
+## Get variable importance
+
+```{r}
+
+rf_model <- readRDS("output/cv_rfs.rds")
+folds <- 34
+
+## look at variable importance, create table of all site rankings
+variable.imp <- list()
+var.imp.ranks <- list()
+variable.imp.single <- list()
+for (i in 1:folds) {
+  variable.imp[[i]] <- varImp(rf_model[[i]], scale = FALSE)
+}
+var.imp.names <- rownames(variable.imp[[1]]$importance)
+for (i in 1:folds) {
+  var.imp.ranks[[i]] <- variable.imp[[i]]$importance$Overall
+  variable.imp.single[[i]] <- cbind(var.imp.names, var.imp.ranks[[i]])
+  variable.imp.single[[i]] <- variable.imp.single[[i]] %>% as_tibble() %>% mutate(V2 = as.integer(V2))
+  variable.imp.single[[i]] <- variable.imp.single[[i]] %>% arrange(desc(V2)) %>% dplyr::select(var.imp.names,V2)
+}
+
+for (i in 1:folds) {
+  names(variable.imp.single[[i]]) <- c("Var",paste("Imp",i,sep=""))
+  variable.imp.single[[i]] <- variable.imp.single[[i]] %>% arrange(Var)
+}
+
+# get full table of rf pred impotance
+variable.importance <- as_tibble(bind_cols(variable.imp.single)) %>% 
+  dplyr::select(1,c(seq(2,62,2))) %>% group_by(Var...1) %>% 
+  mutate(AvgImp = mean(c(Imp1,Imp2,Imp3,Imp4,Imp5,Imp6,Imp7,Imp8,Imp9,Imp10,Imp11,Imp12,
+                         Imp13,Imp14,Imp15,Imp16,Imp17,Imp18,Imp19,Imp20,Imp21,Imp22,
+                         Imp23,Imp24,Imp25,Imp26,Imp27,Imp28,Imp29,Imp30,Imp31))) %>% 
+  ungroup() %>% 
+  mutate(scalingfactor = 100/max(AvgImp),
+         AvgImpScaled = AvgImp*scalingfactor) %>% 
+  arrange(desc(AvgImpScaled)) %>% 
+  dplyr::select(-AvgImp, -scalingfactor)
+view(variable.importance)
+
+```
+
+## Get CV scores
+
+```{r}
+
+# get all hold out predictions
+rf.pred <- list()
+for (i in 1:folds) {
+  rf.pred[[i]] <- train %>% 
+    filter(fold == i) %>%   
+    mutate(DOC_yieldP = predict(rf_model[[i]], .),
+           index = 1:n()) 
+}
+rf.pred.all <- bind_rows(rf.pred)
+
+rf.pred.all %>% 
+  ggplot(aes(DOC_yield, DOC_yieldP)) +
+  geom_point(alpha = 0.5) + 
+  scale_x_continuous(limits = c(0, 40)) +
+  scale_y_continuous(limits = c(0, 40)) +
+  geom_abline(slope = 1, intercept = 0) +
+  # geom_smooth() +
+  mytheme
+
+ungroup(rf.pred.all) %>% 
+  # filter(!ID %in% c("USOWC")) %>%
+  summarize(samples = n(),
+            R2 = cor(DOC_yieldP, DOC_yield)^2,
+            NSE = 1 - sum((DOC_yield - DOC_yieldP)^2) / sum((DOC_yield - mean(DOC_yield))^2),
+            MAE = sum(abs(DOC_yield - DOC_yieldP))/n(),
+            nMAE = MAE/sd(DOC_yield),
+            MeanO = mean(DOC_yield),
+            MedO = median(DOC_yield),
+            sdO = sd(DOC_yield),
+            MeanP = mean(DOC_yieldP),
+            MedP = median(DOC_yieldP),
+            sdP = sd(DOC_yieldP),
+            nSD = sdP/sdO,
+            Bias = mean(DOC_yieldP - DOC_yield),
+            cBias = abs(Bias)/sum(abs(Bias))*100)
+
+
+# try bias correction
+splinemod <- smooth.spline(y=rf.pred.all$DOC_yield[which(!is.na(rf.pred.all$DOC_yield))], x=rf.pred.all$DOC_yieldP[which(!is.na(rf.pred.all$DOC_yieldP))], spar = 2)
+plot(rf.pred.all$DOC_yieldP,rf.pred.all$DOC_yield, xlim = c(0,40), ylim = c(0,40))
+abline(0,1,col = 'grey')
+lines(splinemod, col="black", lwd=5)
+
+saveRDS(splinemod, "output/rf_bias_spline.rds")
+
+```
+
+## get bias corrected predictions
+```{r}
+DOC_yieldP_biascor <- predict(splinemod, rf.pred.all$DOC_yieldP)  
+DOC_yieldP_biascor <- DOC_yieldP_biascor$y
+rf.pred.all <- cbind(rf.pred.all, DOC_yieldP_biascor)
+
+rf.pred.all %>% 
+  ggplot(aes(DOC_yield, DOC_yieldP_biascor)) +
+  geom_abline(slope = 1, intercept = 0, color = "grey") +
+  geom_point(size = 2, alpha = 0.9) + 
+  scale_x_continuous(limits = c(0, 40)) +
+  scale_y_continuous(limits = c(0, 40)) +
+  # geom_smooth() +
+  labs(x = expression("Observed Yield (gC m"^{-2}*" y"^{-1}*")"), y = expression("Predicted Yield (Bias Cor.) (gC m"^{-2}*" y"^{-1}*")")) +
+  mytheme
+ggsave(paste("output/extrapolation_pred_vs_obs.png", sep = ""),
+       width = 12, height = 12, units = c("cm"), dpi = 300)
+
+
+ungroup(rf.pred.all) %>% 
+  # filter(!ID %in% c("USOWC")) %>%
+  summarize(samples = n(),
+            R2 = cor(DOC_yieldP_biascor, DOC_yield)^2,
+            NSE = 1 - sum((DOC_yield - DOC_yieldP_biascor)^2) / sum((DOC_yield - mean(DOC_yield))^2),
+            MAE = sum(abs(DOC_yield - DOC_yieldP_biascor))/n(),
+            nMAE = MAE/sd(DOC_yield),
+            RMSE = sqrt(sum((DOC_yield - DOC_yieldP_biascor)^2)/n()),
+            MeanO = mean(DOC_yield),
+            MedO = median(DOC_yield),
+            sdO = sd(DOC_yield),
+            MeanP = mean(DOC_yieldP_biascor),
+            MedP = median(DOC_yieldP_biascor),
+            sdP = sd(DOC_yieldP_biascor),
+            nSD = sdP/sdO,
+            Bias = mean(DOC_yieldP_biascor - DOC_yield),
+            cBias = abs(Bias)/sum(abs(Bias))*100) %>% view()
+
+write.csv(rf.pred.all, "output/rf_pred_all.csv")
+
+```
+
+
+## Final RF model for predictions
+
+```{r}
+
+# set up folds
+train_label <- train  %>% dplyr::select(DOC_yield) %>% pull()
+train_feat <- train %>% dplyr::select(feat_names)
+
+folds_index <- list() 
+for (i in 1:folds) {
+    folds_index[[i]] <- train %>% 
+      mutate(index = 1:n()) %>% 
+      filter(!fold == i) %>% 
+      dplyr::select(index) %>% 
+      pull()
+}
+
+## set up lists 
+tgrid <- list()
+myControl <- list()
+
+## Create tune-grid
+tgrid <- expand.grid(
+  mtry = c(2),
+  splitrule = "variance", 
+  min.node.size = c(2)
+)
+
+## Create trainControl object
+myControl <- trainControl(
+    method = "cv",
+    classProbs = FALSE,
+    allowParallel = TRUE,
+    verboseIter = TRUE, 
+    savePredictions = TRUE,
+    index = folds_index
+  )
+
+  ## train rf on folds
+rf_model <- train(
+    x = train_feat, 
+    y = train_label,
+    num.trees = 50, # start 300 
+    method = 'ranger',
+    # weights = train_label[[i]]/max(train_label[[i]])^2,
+    trControl = myControl,
+    tuneGrid = tgrid,
+    importance = 'permutation',
+    metric = "MAE"
+  )
+
+saveRDS(rf_model, "output/rf_final.rds")
+
+```
+
+
+## extrapolate predictions
+
+```{r}
+rf_model <- readRDS("output/rf_final.rds")
+
+rcn.pred <- feat %>% 
+  left_join(doc, by = c("IP_ID")) %>% 
+    mutate(DOC_yieldP = predict(rf_model, .),
+           index = 1:n()) 
+
+rcn.pred %>% 
+  ggplot(aes(DOC_yield, DOC_yieldP)) +
+  geom_point(alpha = 0.5) + 
+  scale_x_continuous(limits = c(0, 40)) +
+  scale_y_continuous(limits = c(0, 40)) +
+  geom_abline(slope = 1, intercept = 0) +
+  geom_smooth() +
+  mytheme
+
+```
+
+## Final Model Bias Cor
+
+```{r}
+
+# try bias correction
+splinemod <- smooth.spline(y=rcn.pred$DOC_yield[which(!is.na(rcn.pred$DOC_yield))], x=rcn.pred$DOC_yieldP[which(!is.na(rcn.pred$DOC_yield))], spar = 2)
+plot(rcn.pred$DOC_yieldP,rcn.pred$DOC_yield, xlim = c(0,40), ylim = c(0,40))
+abline(0,1,col = 'grey')
+lines(splinemod, col="black", lwd=5)
+
+# get bias corrected predictions
+DOC_yieldP_biascor <- predict(splinemod, rcn.pred$DOC_yieldP)  
+DOC_yieldP_biascor <- DOC_yieldP_biascor$y
+rcn.pred <- cbind(rcn.pred, DOC_yieldP_biascor)
+
+# quick evaluation
+rcn.pred %>% 
+  ggplot(aes(DOC_yield, DOC_yieldP_biascor)) +
+  geom_abline(intecept = 0, slope = 1, color = 'grey') +
+  geom_point(size = 2) +
+  scale_x_continuous(limits = c(0, 40)) +
+  scale_y_continuous(limits = c(0, 40)) +
+  # stat_smooth() +
+  labs(x = expression("Observed Yield (gC m"^{-2}*" y"^{-1}*")"), y = expression("Predicted (Bias Cor.) Yield (gC m"^{-2}*" y"^{-1}*")")) +
+  mytheme
+ggsave(paste("output/pred_vs_obs_bias_cor.png", sep = ""),
+       width = 12, height = 12, units = c("cm"), dpi = 300)
+
+ungroup(rcn.pred) %>% 
+  filter(!is.na(DOC_yield)) %>%
+  summarize(samples = n(),
+            R2 = cor(DOC_yieldP_biascor, DOC_yield)^2,
+            NSE = 1 - sum((DOC_yield - DOC_yieldP_biascor)^2) / sum((DOC_yield - mean(DOC_yield))^2),
+            MAE = sum(abs(DOC_yield - DOC_yieldP_biascor))/n(),
+            nMAE = MAE/sd(DOC_yield),
+            MeanO = mean(DOC_yield),
+            MedO = median(DOC_yield),
+            sdO = sd(DOC_yield),
+            MeanP = mean(DOC_yieldP_biascor),
+            MedP = median(DOC_yieldP_biascor),
+            sdP = sd(DOC_yieldP_biascor),
+            nSD = sdP/sdO,
+            Bias = mean(DOC_yieldP_biascor - DOC_yield),
+            cBias = abs(Bias)/sum(abs(Bias))*100) %>% view()
+
+write.csv(rcn.pred, "output/rcn_yield.csv",
+          row.names = FALSE)
+```
+
+## Final Prediction Evaluation
+
+```{r}
+
+summary(rcn.pred$DOC_yieldP_biascor)
+
+rcn.pred %>% 
+  arrange(desc(Area_km2)) %>% 
+  filter(Area_km2 < 9000) %>% 
+  mutate(Load_Tgy = DOC_yieldP_biascor*Area_km2*10^6*10^-12) %>% 
+  summarize(Area_km2 = sum(Area_km2),
+            RCN_Load_Tgy = sum(Load_Tgy)) %>% 
+  mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
+
+# uncertainty MAE (2.7295)
+rcn.pred %>% 
+  arrange(desc(Area_km2)) %>% 
+  filter(Area_km2 < 9000) %>% 
+  mutate(Load_Tgy = 2.7295*Area_km2*10^6*10^-12) %>% 
+  summarize(Area_km2 = sum(Area_km2),
+            RCN_Load_Tgy = sum(Load_Tgy)) %>% 
+  mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
+
+# uncertainty RMSE (4.35217)
+rcn.pred %>% 
+  arrange(desc(Area_km2)) %>% 
+  filter(Area_km2 < 9000) %>% 
+  mutate(Load_Tgy = 4.35217*Area_km2*10^6*10^-12) %>% 
+  summarize(Area_km2 = sum(Area_km2),
+            RCN_Load_Tgy = sum(Load_Tgy)) %>% 
+  mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
+
+rcn.pred %>% 
+  ggplot(aes(MAP_avg, DOC_yieldP_biascor)) +
+  geom_point() +
+  # scale_x_continuous(limits = c(0, 40)) +
+  # scale_y_continuous(limits = c(0, 40)) +
+  stat_smooth() +
+  # geom_abline(intecept = 0, slope = 1) +
+  mytheme
+
+```
+
 
 
