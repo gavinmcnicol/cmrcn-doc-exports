@@ -324,13 +324,23 @@ ggsave(paste("output/ffs_mae.png", sep = ""),
 
 
 saveRDS(rf_metrics_all, "output/fs_all.rds")
+
+rf_metrics_all <- readRDS("output/fs_all.rds")
+
 ```
 
 
 ### Train with feature subset for cross validation performance
 ```{r cv-performance, echo = F, message = F, warning = F}
+# short vector
+rf_metrics_all %>% 
+  filter(index == 3814) %>% 
+  pull(predictors)
+  
+feat_names <- c("PrctSnow", "Eref_avg")
 
-feat_names <- c("Elev_avg", "PAS_avg",  "MAT_avg", "TD_avg", "Eref_avg")
+# long vector (5 predictors)
+# feat_names <- c("Elev_avg", "PAS_avg",  "MAT_avg", "TD_avg", "Eref_avg")
 
 train_feat <- list()
 train_label <- list()
@@ -368,7 +378,7 @@ for (i in 1:folds) {
   
   ## Create tune-grid
   tgrid <- expand.grid(
-    mtry = c(2,3,4,5),
+    mtry = c(2),
     splitrule = "variance", 
     min.node.size = c(2,6,12,18)
   )
@@ -543,7 +553,7 @@ write.csv(rf.pred.all, "output/rf_pred_all.csv")
 
 # set up folds
 train_label <- train  %>% dplyr::select(DOC_yield) %>% pull()
-train_feat <- train %>% dplyr::select(feat_names)
+train_feat <- train %>% dplyr::select(all_of(feat_names))
 
 folds_index <- list() 
 for (i in 1:folds) {
@@ -686,7 +696,7 @@ rcn.pred %>%
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
 
-# uncertainty RMSE (4.35217)
+    # uncertainty RMSE (4.35217)
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
