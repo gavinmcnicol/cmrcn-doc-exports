@@ -712,7 +712,7 @@ rcn.pred %>%
 rcn.pred %>% 
   arrange(desc(Area_km2)) %>% 
   filter(Area_km2 < 9000) %>% 
-  mutate(Load_Tgy = 2.72*Area_km2*10^6*10^-12) %>% 
+  mutate(Load_Tgy = 2.68*Area_km2*10^6*10^-12) %>% 
   summarize(Area_km2 = sum(Area_km2),
             RCN_Load_Tgy = sum(Load_Tgy)) %>% 
   mutate(RCN_DOC_yield_biascor = RCN_Load_Tgy*10^12*(1/Area_km2)*(1/10^6))
@@ -722,7 +722,9 @@ rcn.pred %>%
 # Prepare final output file
 
 ```{r}
-data
+rcn.pred %>% 
+  dplyr::select(IP_ID, Area_km2, DOC_yield, DOC_yield_sd, DOC_yieldP = DOC_yieldP_biascor) %>% 
+  write_csv("output/rcn_doc_yield_predictions.csv")
 ```
 
 
