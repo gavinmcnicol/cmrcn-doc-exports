@@ -727,4 +727,39 @@ rcn.pred %>%
   write_csv("output/rcn_doc_yield_predictions.csv")
 ```
 
+## Extra plot comparing LOADEST with COMPUTE yields
+
+```{r}
+loadest <- read_csv("data/modeled-doc-flux-all-watersheds.csv") %>% 
+  filter(`Calculation Method` == "Loadest") %>% 
+  select(IP_ID, Name, loadest_DOC_yield = Yield_gm_1)
+
+training <- read_csv("data/training-data.csv") %>% 
+  select(IP_ID, compute_DOC_yield = DOC_yield)
+
+comparison <- loadest %>% 
+  left_join(training)
+```
+
+```{r}
+comparison %>% 
+  mutate(bias_error = loadest_DOC_yield - compute_DOC_yield) %>% 
+  summarize(bias = mean(bias_error, na.rm = T))
+
+comparison %>% 
+  ggplot(aes(x = loadest_DOC_yield, y = compute_DOC_yield)) +
+  geom_abline(slope = 1, color = "grey80") +
+  geom_point(size = 2) +
+  geom_text(data = NULL, label = expression("Bias = 0.30  gC m"^{-2}*" y"^{-1}*""), x = 15, y = 35, size = 4) +
+  scale_x_continuous(limits = c(0, 40)) +
+  scale_y_continuous(limits = c(0, 40)) +
+  labs(x = expression("Loadest DOC Yield (gC m"^{-2}*" y"^{-1}*")"), 
+       y = expression("Computed DOC Yield (gC m"^{-2}*" y"^{-1}*")")) +
+  mytheme
+ggsave("output/calc_bias.png", dpi = 300,  width = 13, height = 12, units = "cm")
+
+```
+
+
+
 
